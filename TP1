@@ -1,83 +1,1225 @@
-{r}
+---
+title: "TP 1"
+author: "Florencia Kihara y Victoria Marco"
+date: "12/6/2021"
+output: html_document
+---
+
+# **Ciencia de Datos II**
+
+## **Trabajo Práctico N°1**
+
+Alumnas: Florencia Kihara y Victoria Marco
+
+1.  Elegimos la ciudad de San Francisco, EEUU.
+2.  Elegimos el dataset de los proyectos residenciales con zonificación inclusiva (desde ahora, PRZI) en la ciudad.
+
+```{r}
 library(tidyverse)
 library(sf)
 options (scipen = 100)
+```
 
+Cargamos el dataset de los barrios de San Francisco.
 
-{r}
+```{r}
 Barrios <- st_read("https://raw.githubusercontent.com/flokihara/DATOS2/main/data/Analysis%20Neighborhoods.geojson")
+```
 
-{r}
+```{r}
 summary(Barrios)
+head(Barrios)
+```
 
-{r}
+```{r}
 st_crs(Barrios)
+```
 
-{r}
+Ahora, cargaremos el dataset sobre los PRZI.
+
+```{r}
 ProyZonificacionInclu <- read.csv("https://raw.githubusercontent.com/flokihara/DATOS2/main/data/Residential_Projects_With_Inclusionary_Requirements.csv")
+```
 
-{r}
+```{r}
 summary(ProyZonificacionInclu)
+```
 
+Ahora, haremos un mapa para conocer la ubicación de los PRZI. Para ello, tomaremos como primera capa el dataset georreferenciado de los barrios y le agregaremos, a través de las variables "latitud" y "longitud" la data que refiere a la ubicación de los PRZI (los colocamos con la función "geom_point" ya que no es un dataset espacial aún)
 
-{r fig.height=10, fig.width=10}
+```{r fig.height=5, fig.width=7.5}
 ggplot() +
     geom_sf(data = Barrios, fill=NA,color="gray60") +
-    geom_point(data = ProyZonificacionInclu, aes (x=Longitude, y=Latitude), alpha = .5, 
-               color = "hotpink4", size=2, show.legend = "point")+
-    scale_colour_manual(values= c("Proyectos de Zonificacion Inclusiva"="hotpink4"), name="Referencias")+
-  labs(title = "Ubicación geográfica de los proyectos de zonificacion inclusiva en San Francisco",
-       caption = "Fuente: DATA SF",
-       colour="Proyectos de zonificación inclusiva")+
+    geom_point(data = ProyZonificacionInclu, aes (x=Longitude, y=Latitude, colour = "PRZI", show.legend = "point"), alpha = .5, size=2)+
+  labs(title = "Ubicación geográfica de los proyectos residenciales de zonificacion inclusiva en San Francisco",
+       caption = "Fuente: DATA SF", colour="Referencias")+
+  scale_colour_manual(values= c("PRZI"="hotpink4"))+
   theme_void()+
   theme(plot.title = element_text(size = 16),
         plot.caption = element_text(size = 10))
+```
 
-{r}
+3.  Ahora, con el fin de poder transformar el dataset de PRZI a uno espacial, haremos el siguiente procedimiento:
+
+```{r}
 ProyZonificacionInclu <- ProyZonificacionInclu %>% 
     filter(!is.na(Latitude), !is.na(Longitude)) %>% 
     st_as_sf(coords = c("Longitude", "Latitude"), crs = 4326)
+```
 
-{r}
+```{r}
 PZI_barrios <-st_join (ProyZonificacionInclu, Barrios)
+```
 
-{r}
+Para verificar que se haya incorporado la geometría al dataset, aplicamos "head".
+
+```{r}
 head(PZI_barrios)
+```
 
-{r}
-PZI_barrios %>% 
-    group_by(nhood) %>% 
-    summarise(cantidad = n())
+A partir del agregado de la geometría, podemos realizar el siguiente gráfico en el que se observa la ubicación de los PRZI en diferentes colores según el barrio en el que se encuentren.
 
-{r fig.height=10, fig.width=10}
+```{r fig.height=5, fig.width=7.5}
 ggplot() +
     geom_sf(data = Barrios, fill=NA,color="gray60") +
     geom_sf(data = PZI_barrios, aes(color = nhood), size=2, alpha=0.60)+
-  labs(title = "Ubicación de los proyectos de zonificacion inclusiva por barrio en San Francisco",
+  labs(title = "Ubicación de los proyectos residenciales de zonificacion inclusiva por barrio en San Francisco",
        caption = "Fuente: DATA SF",
        colour="Barrios")+
   theme_void()+
-  theme(plot.title = element_text(size = 16),
-        plot.caption = element_text(size = 10))
+  theme(plot.title = element_text(size = 10),
+        plot.caption = element_text(size = 5))
+```
 
+3.1 Para poder realizar el gráfico de columnas solicitado en este punto, realizamos el siguiente procedimiento:
 
-{r}
+```{r}
 PZI_barrios_no_espacial <- PZI_barrios %>%
   st_set_geometry(NULL)
+```
 
-{r}
+```{r}
 PZI_cantidad_barrios <- PZI_barrios_no_espacial %>% 
   group_by(nhood) %>% 
   summarise(cantidad=n())
+```
 
-
-nos faltaría poner cuánto hay de cada caso! 
-{r fig.height=10, fig.width=25}
+```{r fig.height=5, fig.width=10}
 ggplot() +
   geom_col(data= PZI_cantidad_barrios, aes(x=reorder(nhood, -cantidad), y=cantidad, fill=nhood))+
-  labs(title="Cantidad de proyectos de zonificación inclusiva por barrio", caption=" Fuente: DATA SF", x="Barrios de San Francisco", y="Cantidad de proyectos de zonificación inclusiva")+
-  theme(axis.text=element_text(size=15), axis.title=element_text(size=20),
-        axis.text.x = element_text(colour = "gray25",size = 8), 
-        axis.text.y = element_text(colour = "gray25",size = 10))
-       
-    
+  geom_text(data= PZI_cantidad_barrios, aes(x=reorder(nhood, -cantidad), y=cantidad, label=as.integer(cantidad)), size=3)+
+  labs(title="Cantidad de proyectos residenciales de zonificación inclusiva por barrio", caption=" Fuente: DATA SF", x="Barrios de San Francisco", y="Cantidad de proyectos de zonificación inclusiva", fill= "Barrios")+
+  theme(title=element_text(size=10),
+    axis.text=element_text(size=8), axis.title=element_text(size=10),
+        axis.text.x = element_text(colour = "gray25",size = 8, angle = 90), 
+        axis.text.y = element_text(colour = "gray25",size = 8))
+```
+
+A partir de este gráfico, podemos observar que existe una gran dispersión respecto a la cantidad de PRZI realizados en cada barrio. Por ejemplo, mientras que South of Market posee 69 PRZI, el siguiente barrio considerando la cantidad de forma descendente posee 53 (barrio: Mission), es decir, una diferencia de 16 PRZI. Por otro lado, también se puede apreciar que la mayoría de los barrios poseen menos de 10 PRZI (3 barrios poseen 7 PRZI; 2 poseen 5 PRZI; 5 poseen 4 PRZI; 4 poseen 3 PRZI, 4 poseen 2 PRZI y 4 poseen 1 PRZI).
+
+3.2 Ahora realizaremos un mapa coroplético mediante el siguiente procedimiento.
+
+```{r}
+cantidadPZI_barrios <- Barrios %>% 
+  left_join(PZI_cantidad_barrios, by="nhood")
+```
+
+```{r fig.height=5, fig.width=10}
+ggplot()+
+  geom_sf(data=Barrios, fill="gray60")+
+  geom_sf(data= cantidadPZI_barrios, aes(fill=cantidad))+
+  geom_sf_label(data= cantidadPZI_barrios, aes(label=nhood), size=3)+
+labs(title = "Cantidad de proyectos residenciales de zonificación inclusiva por barrio", 
+       fill = "Cantidad de PRZI", 
+       caption = "Fuente: DATA SF",
+     x="Longitud", y="Latitud")+
+   theme(title=element_text(size=8),
+    axis.text=element_text(size=8), axis.title=element_text(size=10),legend.text=element_text(size=10))+
+  scale_fill_viridis_c()
+```
+
+A través de este mapa, es posible reconfirmar la dispersión de cantidad de PRZI nombrada en el análisis del gráfico anterior, ya que se observa una gran diferencia entre los barrios del noroeste de la Ciudad (que poseen gran número de PRZI) y el resto, que se encuentran coloreados de manera oscura, demostrando los pocos PRZI.
+
+Además, el valor agregado de este mapa es que nos permite observar que 7 barrios (los coloreados en gris) no poseen ningún PRZI.
+
+Ahora bien, nos gustaría poder observar este mismo mapa pero contextualizado en su entorno. Para ello, utilizaremos la función "ggmap" obteniendo la información de <http://maps.stamen.com/>.
+
+```{r}
+library(ggmap)
+```
+
+```{r}
+bbox_Barrios <- as.numeric(st_bbox(Barrios))
+```
+
+```{r}
+Mapa_SF <- get_stamenmap(bbox = bbox_Barrios,
+                      maptype = "toner-lite",
+                      zoom=12)
+```
+
+Visualizaremos el mapa obtenido para verificar que el procedimiento haya sido correcto.
+
+```{r}
+ggmap(Mapa_SF)
+```
+
+A continuación, realizaremos el mapa coroplético contextualizado.
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF)+
+  geom_sf(data= cantidadPZI_barrios, aes(fill=cantidad),inherit.aes = FALSE, alpha=0.90, color="gray20")+
+   labs(title = "Cantidad de proyectos residenciales de zonificación inclusiva por barrio", 
+       fill = "Cantidad de PRZI", 
+       caption = "Fuente: DATA SF",
+     x="Longitud", y="Latitud") +
+  theme(title=element_text(size=8),
+    axis.text=element_text(size=8), axis.title=element_text(size=10),legend.text=element_text(size=10))+
+  scale_fill_viridis_c()
+```
+
+El valor agregado de este mapa es que nos permite ver que el barrio Treasure Island está conectado a la ciudad continental mediante lo que presumimos es una vía.
+
+-   Nota: Este mapa contextualizado no posee las etiquetas de cada barrio para no obstaculizar la visión del entorno.
+
+## **Trabajo Práctico N°1 (según devolución)**
+
+Realizamos nuevamente el gráfico del punto 3.1 pero eliminando la leyenda, ya que no aporta valor al estar todos los barrios escritos en el eje X.
+
+```{r fig.height=5, fig.width=10}
+ggplot() +
+  geom_col(data= PZI_cantidad_barrios, aes(x=reorder(nhood, -cantidad), y=cantidad, fill=nhood))+
+  geom_text(data= PZI_cantidad_barrios, aes(x=reorder(nhood, -cantidad), y=cantidad, label=as.integer(cantidad)), size=3)+
+  labs(title="Cantidad de proyectos residenciales de zonificación inclusiva por barrio", caption=" Fuente: DATA SF", x="Barrios de San Francisco", y="Cantidad de proyectos de zonificación inclusiva", fill= "Barrios")+
+  theme(legend.position = "none")+
+  theme(title=element_text(size=15),
+    axis.text=element_text(size=8), axis.title=element_text(size=10),
+        axis.text.x = element_text(colour = "gray25",size = 8, angle = 90), 
+        axis.text.y = element_text(colour = "gray25",size = 8))
+```
+
+Ahora analizaremos la densidad de los PRZI de cada barrio, con el fin de conocer si existe una posible relación entre la cantidad de proyectos y la superficie de los barrios.
+
+Como no poseemos la superficie en el dataset Barrios, la calculamos con el siguiente procedimiento.
+
+```{r}
+library(lwgeom)
+```
+
+```{r}
+Barrios <- Barrios %>%  
+  mutate(superficie=st_area(Barrios))
+```
+
+```{r}
+head(Barrios)
+```
+
+```{r}
+Barrios <- Barrios %>%
+  mutate(superficie_km=round(as.numeric(superficie)/1000000, 2))
+```
+
+```{r}
+Barrios_noespacial <- Barrios %>%
+  st_set_geometry(NULL)
+```
+
+```{r}
+cantidadPZI_barrios <- cantidadPZI_barrios %>% 
+  left_join(Barrios_noespacial, by="nhood")
+```
+
+```{r}
+cantidadPZI_barrios <- mutate(cantidadPZI_barrios, densidad=round(cantidad/superficie_km, 2))
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF)+
+  geom_sf(data= cantidadPZI_barrios, aes(fill=densidad),inherit.aes = FALSE, alpha=0.95, color="black")+
+   labs(title = "Densidad de proyectos residenciales de zonificación inclusiva por barrio", 
+       fill = "Densidad de PRZI", 
+       caption = "Fuente: DATA SF",
+     x="Longitud", y="Latitud") +
+  theme(title=element_text(size=8),
+    axis.text=element_text(size=8), axis.title=element_text(size=10),legend.text=element_text(size=10))+
+  scale_fill_viridis_c()
+```
+
+Analizando el mapa coroplético anterior, se observa que:
+
+-   La mayor densidad de PRZI se encuentra en los barrios del noroeste de San Francisco. Probablemente, esto se deba a que dichos barrios presentan gran cantidad de PRZI y superficies relativamente pequeñas en comparación a otros barrios.
+
+-   En el caso de los barrios del sur, que tienen mayor superficie, presentan menor densidad de PRZI.
+
+-   El barrio South of Market es el que presenta mayor densidad de PRZI (coloreado en amarillo), como así también mayor cantidad (tal como se observó en el mapa del punto 3.2)
+
+## **Trabajo Práctico N°2**
+
+```{r}
+library(osmdata)
+library(leaflet)
+```
+
+```{r}
+bbox_sf <- getbb("San Francisco City and County, California", limit = 10)
+```
+
+```{r}
+bbox_sf
+```
+
+```{r}
+mapa_sf2 <- get_stamenmap(bbox=bbox_sf,
+                          zoom=10)
+```
+
+```{r}
+ggmap(mapa_sf2)
+```
+
+```{r}
+bbox_sf_poligono <- getbb("San Francisco City and County, California", format_out = "sf_polygon")
+geometria <-  bbox_sf_poligono[["multipolygon"]]
+```
+
+```{r}
+geometria
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(mapa_sf2)+
+  geom_sf(data=geometria, fill=NA, size=1, color="firebrick3", inherit.aes = FALSE)+
+  labs(title="Polígono de San Francisco",
+       subtitle= "Continental e insular",
+       caption="Fuente: Open Street Map")+
+  theme(title=element_text(size=50), plot.caption=element_text(size=25))+
+  theme_void()
+```
+
+```{r}
+sf_calles <- opq(bbox_sf) %>% 
+  add_osm_feature (key="highway")
+```
+
+```{r}
+sf_calles <- osmdata_sf(sf_calles)
+```
+
+```{r}
+sf_calles
+```
+
+```{r}
+sf_calles <- sf_calles$osm_lines
+```
+
+```{r}
+dim(sf_calles)
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(mapa_sf2)+
+    geom_sf(data = sf_calles , aes (color="Calles"), alpha=0.5, inherit.aes = FALSE, show.legend = "point")+
+  geom_sf(data=geometria, fill= NA, color= "red", inherit.aes = FALSE)+
+  labs(title="Calles dentro del polígono seleccionado de San Francisco",
+       caption="Fuente: Open Street Map")+
+   scale_colour_manual(values=c("Calles"="deepskyblue4"),name="Referencia", guide = guide_legend(override.aes = list(linetype = "blank"))) +
+  theme_void()+
+  theme(title=element_text(size=10),
+    axis.text=element_text(size=5),
+    plot.title = element_text(hjust=0.07, face = "bold"),
+      plot.caption = element_text(size=5))
+```
+
+Visto y considerando que el polígono obtenido mediante el procedimiento anterior aplica tanto para el área continental como insular de San Francisco y alrededores, al obtener el dato de las calles se evidencian 67.825 observaciones. Por lo tanto, con el fin de poder delimitar las calles solamente para el área continental de San Francisco (área que ha sido objeto de estudio en el TP1), realizaremos el siguiente procedimiento para limitar el polígono solo al área deseada.
+
+```{r}
+st_crs (Barrios)
+```
+
+```{r}
+geometria2 <- st_join(Barrios, geometria)
+```
+
+```{r}
+sf_calles2 <- st_intersection(sf_calles, geometria2)
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(mapa_sf2)+
+    geom_sf(data = sf_calles2, color="deepskyblue4", alpha=0.5, inherit.aes = FALSE)+
+  labs(title="Calles en área seleccionada en San Francisco",
+       caption="Fuente: Open Street Map")+
+  theme(title=element_text(size=8))+
+  theme_void()
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF)+
+    geom_sf(data = sf_calles2, color="deepskyblue4", alpha=0.5, inherit.aes = FALSE)+
+  labs(title="Calles en área seleccionada en San Francisco",
+       subtitle= "Sobre la base del mapa barrial",
+       caption="Fuente: Open Street Map")+
+  theme(title=element_text(size=20),plot.caption =element_text(size=10),subtitle=element_text(size=15))+
+  theme_void()
+```
+
+Ahora, filtraremos el dataset de las calles para obtener el dato de máxima velocidad permitida y poder crear un mapa a partir de ello.
+
+```{r}
+sf_calles_filtrado <- select (sf_calles2 ,highway, lanes, maxspeed,oneway,surface,geometry)
+```
+
+```{r}
+sf_calles_filtrado2 <- filter(sf_calles_filtrado, !is.na (maxspeed))
+```
+
+```{r}
+sf_calles_filtrado2 <- separate(sf_calles_filtrado2, maxspeed, c("velmax", "mph"), sep = " ")
+```
+
+```{r}
+sf_calles_filtrado2 <- sf_calles_filtrado2 %>% 
+  mutate(velmax=as.numeric(velmax)) %>% 
+  mutate(velmaxkm=velmax*1.6)
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF)+
+  geom_sf(data=geometria2, fill= NA, color= "hotpink4", inherit.aes = FALSE)+
+  geom_sf(data=sf_calles_filtrado2, aes(color=velmaxkm), inherit.aes = FALSE)+
+  scale_color_viridis_c("Velocidad máxima permitida km/h")+
+  labs(title = "Calles según velocidad máxima permitida en San Francisco", 
+       caption = "Fuente: Open Street Map",
+     x="Longitud", y="Latitud") +
+    theme(title=element_text(size=8),
+    axis.text=element_text(size=8), axis.title=element_text(size=10),legend.text=element_text(size=10))
+```
+
+En primer lugar, resulta importante mencionar que a partir de la manipulación de los datos (es decir, el filtrado para poder conservar las calles ubicadas en el polígono continental y posterior filtrado para obtener aquellas calles que tenían el valor de la velocidad máxima), la cantidad de observaciones disminuyeron de 67.845 (inicialmente) a 4.585 (cantidad final). Es, por este motivo, que las calles mapeadas en el último mapa son menos que las localizadas en el anteúltimo mapa (titulado: "Calles en área seleccionada en San Francisco).
+
+Ahora bien, analizando el mapa en detalle, se visualizan pocas arterias con velocidades superiores a 75km/h. Sin embargo, la avenida "silver Avenue" parece ser una de alta velocidad, que puede deberse al hecho de que conecta con South San Francisco y con el barrio insular de Treasure Island.
+
+2.a. Descargaremos una capa de datos sobre transporte público, con el fin de conocer si las PZRI cuentan con buena accesibilidad.
+
+```{r}
+sf_transporte <- opq(bbox_sf) %>% 
+  add_osm_feature (key="public_transport", value = ("stop_position"))
+```
+
+```{r}
+sf_transporte <- osmdata_sf(sf_transporte)
+```
+
+```{r}
+sf_transporte
+```
+
+```{r}
+sf_transporte <- sf_transporte$osm_points
+```
+
+```{r}
+sf_transporte <- st_intersection(sf_transporte, geometria2)
+```
+
+```{r}
+sf_transporte <- mutate(sf_transporte, tipo="Paradas")
+```
+
+```{r}
+ggmap(Mapa_SF)+
+  geom_sf(data=sf_transporte, aes(color=tipo), inherit.aes = FALSE, alpha=0.75, size=0.5)+
+  labs(title="Paradas de transporte público",
+       subtitle="Bus",
+       color="Referencias",
+       caption="Fuente: Open Street Map")+
+  theme_void()
+```
+
+Analizando este mapa, se puede observar que, en líneas generales, las paradas de los buses se distribuyen de forma equitativa en todo el territorio considerado. Ahora bien, vale destacar algunos casos particulares:
+
+-   En el caso del extremo noroeste, se observa una gran cantidad de paradas de buses.
+
+-   En el caso del noreste (zona Presidio) se observan pocas paradas, lo cual probablemente este relacionado con el hecho de que allí un gran centro de recreación (incluido Disney).
+
+-   Por último, respecto a la zona este, resulta interesante destacar que las paradas de buses parecen localizarse sobre las avenidas (ya que, en el mapa anterior, estas arterias están marcadas en color azul-verde haciendo referencia a una velocidad velocidad máxima permitida media), sin adentrarse en la retícula de las manzanas.
+
+2.b Ahora, realizaremos un conteo de las paradas de bus por barrio. Vale aclarar que, en el dataset descargado sobre las paradas de bus, ya existe una variable llamada "nhood", en la que se detallan los barrios a los que pertenecen las paradas. Ahora bien, para corroborar que la geometría de cada parada coincida con el barrio cargado en la variable "nhood", realiaremos el siguiente mapa:
+
+```{r fig.height=8, fig.width=10}
+ggplot() +
+    geom_sf(data = Barrios, fill=NA,color="gray60") +
+    geom_sf(data = sf_transporte, aes(color = nhood), size=0.5, alpha=0.60)+
+  labs(title = "Ubicación de las paradas por barrio en San Francisco",
+       caption = "Fuente: Open Street Map",
+       colour="Barrios")+
+  theme_void()+
+  theme(plot.title = element_text(size = 8),
+        plot.caption = element_text(size = 6),
+        legend.text=element_text(size=8))
+```
+
+A partir de este mapa, y al observar que no hay paradas geolocalizadas fuera de los barrios al que dicen pertenecer, podemos confiar en esta información y no hará hacer el procedimiento de "st_join".
+
+```{r}
+sf_transporte2 <- sf_transporte %>% 
+  group_by(nhood) %>% 
+  summarise(cantidad=n())
+```
+
+```{r fig.height=5, fig.width=10}
+ggplot() +
+  geom_col(data= sf_transporte2, aes(x=reorder(nhood, -cantidad), y=cantidad, fill=nhood))+
+  geom_text(data= sf_transporte2, aes(x=reorder(nhood, -cantidad), y=cantidad, label=as.integer(cantidad)), size=3)+
+  labs(title="Cantidad de paradas de bus por barrio", caption=" Fuente: Open Street Map", x="Barrios de San Francisco", y="Cantidad de paradas de bus", fill= "Barrios")+
+  theme(legend.position = "none")+
+  theme(title=element_text(size=8),
+    axis.text=element_text(size=8), axis.title=element_text(size=8),
+        axis.text.x = element_text(colour = "gray25",size = 8, angle = 90), 
+        axis.text.y = element_text(colour = "gray25",size = 8))
+```
+
+A partir de este gráfico, se puede visualizar una disparidad de cantidad de paradas de buses en los distintos barrios. Mientras Sunset Paradise, Financial District/South Beach, Bayview Hunters Point y West of Twin Peaks poseen más de 200 paradas; Treasure Island, McLaren Park, Japantown y Seacliff y Lincoln Park poseen menos de 20 paradas.
+
+Ahora realizaremos un mapa coroplético con el fin de poder comparar las cantidades de paradas de buses en los distintos barrios de forma geolocalizada (a diferencia del gráfico anterior).
+
+```{r}
+sf_transporte3 <- sf_transporte2 %>% 
+   st_set_geometry(NULL) 
+```
+
+```{r}
+Barrios_T <- Barrios %>% 
+  left_join(sf_transporte3,by="nhood")
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF)+
+  geom_sf(data= Barrios_T, aes(fill=cantidad),inherit.aes = FALSE, alpha=0.90, color="gray20")+
+    scale_fill_viridis_c()+
+   labs(title = "Cantidad de paradas de bus por barrio", 
+       fill = "Cantidad de paradas", 
+       caption = "Fuente: Open Street Map",
+     x="Longitud",y="Latitud")+
+  theme(title=element_text(size=8),
+    axis.text=element_text(size=8), axis.title=element_text(size=10),legend.text=element_text(size=10))
+```
+
+Al analizar este mapa, resulta interesante observar que los barrios con mayor cantidad de paradas son los que se encuentran en el este (por ejemplo: Sunset/Park Side), el centro (por ejemplo, West of Twin Peaks) y el oeste (Bayview Hunters Point y Financial District/South Beach); lo cual difiere a lo evaluado a través del mapa de puntos.
+
+*Nota: Vale aclarar que, como en el Open Street Map no encontramos un dataset sobre Proyectos de Zonificación Residencial Inclusiva, descargamos el dataset de las paradas de bus ya que consideramos interesante poder cruzar ambos datasets para conocer si los PRZI poseen buena accesibilidad.*
+
+Ahora bien, dado que en el ejercicio anterior (TP 1) analizamos, luego de la recomendación docente, las densidades de los PRZI por barrios, haremos lo mismo con las paradas de buses a fin de poder vincular la información obtenida y sacar conclusiones.
+
+```{r}
+Barrios_T <- mutate(Barrios_T, densidadT=round(cantidad/superficie_km, 2))
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF)+
+  geom_sf(data= Barrios_T, aes(fill=densidadT),inherit.aes = FALSE, alpha=0.95, color="black")+
+   labs(title = "Densidad de paradas de bus por barrio", 
+       fill = "Densidad de paradas", 
+       caption = "Fuente: Open Street Map",
+     x="Longitud", y="Latitud") +
+  theme(title=element_text(size=8),
+    axis.text=element_text(size=8), axis.title=element_text(size=10),legend.text=element_text(size=10))+
+  scale_fill_viridis_c()
+```
+
+A partir de este mapa y vinculándolo con el mapa de densidades de PRZI, podemos observar que las zonas de mayor densidades para ambas variables son coincidentes (noroeste): South of Market, Tenderloin, Financial District/South Beach. Por otro lado, resulta interesante destacar que, en aquellos barrios donde hay poca densidad de paradas de bus, se evidencia ausencia de PRZI (por ejemplo, Treasure Island, Lincoln Park, Seacliff, Presidio, Golden Gate Park, Twin Peaks y McLaren Park).Podríamos pensar que esto se debe a que los PRZI fueron ubicados en zonas accesibles pero también, esto se debe a que algunos de estos barrios son grandes áreas de recreación sin una retícula urbana consolidada (por ejemplo, Golden Gate Park o Presidio).
+
+*Nota: Ahora bien, quisimos hacer un mapa coroplético vinculando ambas densidades de la siguiente forma: densidad de PRZI en color rojo (de menor a mayor intensidad según la densidad) y densidad de paradas en color azul (de menor a mayor intensidad según la densidad) buscando que si ambas variables adquirían altos valores en algún barrio, se verían en un color violeta intenso. Intentamos realizarlo sin éxito.*
+
+## **Trabajo Práctico N°2 Bis**
+
+A partir de la sugerencia realizada en la corrección, realizaremos el siguiente gráfico para complementar el TP N°2
+
+```{r}
+barrios_unidos <- Barrios_T %>% 
+  left_join(PZI_cantidad_barrios, by="nhood") %>% 
+  mutate(indice=cantidad.x/cantidad.y)
+```
+
+```{r fig.height=5, fig.width=7.5}
+ggplot()+
+  geom_sf(data=barrios_unidos, aes(fill=indice))+
+labs(title = "Indice de paradas de bus/ PRZI",
+       caption = "Fuente: DATA SF",
+     x="Longitud", y="Latitud",
+     fill="Indice")+
+   theme(title=element_text(size=10),
+    axis.text=element_text(size=8), axis.title=element_text(size=10),legend.text=element_text(size=10))+
+  scale_fill_viridis_c()
+```
+
+*Nota: Realizamos el indice, según indicaciones enviadas, pero el resultado obtenido, no nos parece lógico o no lo estaríamos entendiendo bien. Seguiremos analizando esta situación para poder plantear un nuevo gráfico que nos ayude a vincular ambas variables, y lo veremos en otra entrega.*
+
+## **Trabajo Práctico N°3**
+
+***Análisis Temporal***
+
+```{r}
+library(lubridate)
+library(ggmap)
+```
+
+```{r}
+incidentes <- read.csv("data/Police_Department_Incident_Reports__2018_to_Present.csv", stringsAsFactors = TRUE)
+```
+
+```{r}
+incidentes_1 <- incidentes %>% select(2,3,4,5,12,15,16,21,22,24,25,26)
+```
+
+```{r}
+head(incidentes_1)
+```
+
+Una vez que hemos seleccionado las variables a estudiar, filtraremos el dataset para quedarnos solamente con los registros de incidentes del 2019 (prepandemia).
+
+```{r}
+incidentes_2 <- filter(incidentes_1, Incident.Year=="2019")
+```
+
+```{r}
+str(incidentes_2)
+```
+
+Observando la estructura del dataset "incidentes_2" , en la 1era columna podemos visualizar que "incident.Date" tiene las fechas como Factor y lo cambiaremos a Date, para poder hacer operaciones con lubridate.
+
+```{r}
+incidentes_2 <- incidentes_2 %>%
+  mutate(Incident.Date=ymd(Incident.Date))
+```
+
+```{r}
+str(incidentes_2)
+```
+
+```{r}
+incidentes_2 <- incidentes_2 %>%
+  mutate(tiempo=today()-Incident.Date)
+```
+
+```{r}
+head(incidentes_2)
+```
+
+```{r}
+ incidentes_ordenados <- arrange(incidentes_2, desc(tiempo))
+```
+
+```{r fig.height=5, fig.width=10}
+ggplot(incidentes_ordenados)+
+  geom_histogram(aes(x=tiempo),fill="salmon", color="black")+
+  labs(title = "Cantidad de incidentes desde el día ocurrido a hoy ",
+       subtitle= "Histograma",
+  caption = "Fuente:SF Data",
+     x="Cantidad de días transcurridos desde la fecha de incidente, a hoy",y="Cantidad de incidentes")
+  
+```
+
+A partir del gráfico anterior podemos observar que el pico de incidentes se ocasiona a 640 días desde hoy (aproximadamente), por lo tanto podemos inferir que ocurrió en la segunda mitad del 2019. También es interesante observar que en los extremos, es decir, al principio y final del 2019, disminuyen los caso considerablemente. Pensamos que puede deberse a que hay menos reportes de incidentes o que no ocurriesen incidentes debido a las fiestas.
+
+De todos modos, sin considerar los extremos del gráfico, podemos observar que la cantidad de incidentes no disminuye de los 4000 casos, cada 11 días.
+
+```{r fig.height=5, fig.width=10}
+ggplot(incidentes_ordenados %>%
+         group_by(Incident.Date) %>%
+         summarise(cantidad=n())) + 
+    geom_line(aes(x = Incident.Date, y = cantidad))+
+  labs(title = "Cantidad de incidentes reportados en el 2019 por día",
+       subtitle="Gráfico de líneas",
+  caption = "Fuente:SF Data",
+  x= "Fecha")
+  
+```
+
+Agregaremos una variable "mes" a nuestro dataset, para ampliar nuestro análisis.
+
+```{r}
+incidentes_ordenados_01 <- incidentes_ordenados %>% 
+  mutate(mes=month(Incident.Date, label=TRUE))
+```
+
+```{r fig.height=5, fig.width=10}
+ggplot(incidentes_ordenados_01) + 
+    geom_bar(aes(x = mes),fill="salmon", color="black")+
+  labs(title = "Cantidad de incidentes reportados por mes en el 2019",
+       subtitle="Gráfico de barras",
+  caption = "Fuente:SF Data")
+```
+
+Visualizamos a partir de este grácivo que en los meses de agosto y octubre se reportan la mayor cantidad de incidentes.
+
+```{r}
+incidentes_ordenados_01<-incidentes_ordenados_01 %>% 
+  filter(!Incident.Category=="")
+```
+
+```{r}
+incidentes_ordenados_02 <- incidentes_ordenados_01 %>% 
+  group_by(mes, Incident.Category) %>% 
+  summarise(cantidad=n())
+```
+
+```{r fig.height=5, fig.width=15}
+ggplot(incidentes_ordenados_02) + 
+    geom_bar(aes(x = mes, fill=Incident.Category)) +
+    labs(title = "Cantidad de incidentes reportados por mes en San Francisco por tipo",
+         subtitle = "Año 2019",
+         x = "Mes",
+         y = "Cantidad",
+         fill = "Tipo de incidentes",
+         caption = "Fuente: SF Data")
+```
+
+Aparecen tantas categorías de incidentes reportados que se dificulta poder entender bien el gráfico, por lo que probaremos otro tipo de gráfico que nos muestre las categorpias sin apilar.
+
+```{r fig.height=5, fig.width=15}
+ggplot(incidentes_ordenados_01) + 
+    geom_bar(aes(x = mes, fill=Incident.Category), position = "dodge") +
+    labs(title = "Cantidad de Delitos por Mes en San Francisco por tipo",
+         subtitle = "Año 2019",
+         x = "Mes",
+         y = "Cantidad",
+         fill = "Tipo de incidente",
+         caption = "Fuente: SF Data")
+```
+
+```{r fig.height=10, fig.width=15}
+ggplot(incidentes_ordenados_01 %>%
+         group_by(mes, Incident.Category) %>%
+         summarise(cantidad = n())) + 
+    geom_line(aes(x = mes, y = cantidad, color=Incident.Category, group=Incident.Category)) +
+  scale_y_continuous(breaks=seq(0, 10000,10000))+
+    labs(title = "Cantidad de Delitos por Mes en San Francisco",
+         subtitle = "Año 2019",
+         x = "Mes",
+         y = "Cantidad",
+         color = "Tipo de Delito",
+         caption = "Fuente: SF Data")
+```
+
+Con estos dos últimos gráficos se hace muy dificil entender de qué incidente se trata el de mayor cantidad, debido a las numerosas categorías dentro del dataset. Realizaremos un procedimiento para conocer los incidentes reportados más frecuentes y graficarlos.
+
+```{r}
+incidentes_ordenados_03 <- incidentes_ordenados_01 %>% 
+  group_by(Incident.Category) %>% 
+  summarise(cantidad=n()) %>% 
+  arrange(-cantidad)
+  
+```
+
+```{r}
+incidentes_ordenados_04 <- incidentes_ordenados_01 %>% 
+  group_by(Incident.Category, mes) %>% 
+  summarise(cantidad=n())
+  
+```
+
+```{r}
+head(incidentes_ordenados_03,49)
+```
+
+Analizaremos los incidente que muestran más de 6000 casos reportados en el año 2019.
+
+```{r fig.height=8, fig.width=15}
+ggplot(incidentes_ordenados_04 %>%
+         filter(Incident.Category %in% c("Suspicious","Other","Human Trafficking","Malicious Mischief","Assault","Burglary")))+
+    geom_line(aes(x = mes, y = cantidad, color=Incident.Category, group=Incident.Category), size=1) +
+  geom_point(aes(x=mes, y=cantidad, color = Incident.Category), size=2)+
+   geom_text(aes(x=mes, y=cantidad+100, label=cantidad), size=2)+
+  scale_y_continuous(breaks=seq(0,6000,1000))+
+    labs(title = "Cantidad de incidentes seleccionados por mes en San Francisco",
+         subtitle = "Año 2019",
+         x = "Mes",
+         y = "Cantidad",
+         color = "Tipo de incidentes",
+         caption = "Fuente: SF Data")
+```
+
+A partir de este gráfico vemos que los incidentes anualmente más reportados, mantienen una cantidad similar por mes. En este sentido hay 5 incidentes que mensualmente se mantienen en los valores inferiores a 1100 reportes. Sin embargo el sexto incidente "Larceny Theft" (hurto) se distingue del resto, teniendo más de 3000 reportes mensuales. Esto puede deberse a que el hurto es el incidente más reportado o que realmente sea el que más ocurre en San Francisco.
+
+***Análisis Espacial***
+
+```{r}
+incidentes_3<-incidentes_2 %>% 
+  filter(!is.na(Latitude),!is.na(Longitude))
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF) +
+    geom_point(data = incidentes_3, aes(x = Longitude, y = Latitude),size=0.8, color="Hotpink4")+
+   labs(title = "Incidentes reportados geolocalizados",
+  caption = "Fuente:SF Data",
+     x="Longitud",y="latitud")
+```
+
+A partir de este gráfico, podemos observar que hay una gran cantidad de incidentes localizados en el noroeste de San Francisco, y muy pocos en la zona de parques como Presidio y Golden Gate Park.
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF) +
+    geom_bin2d(data = incidentes_3, 
+               aes(x = Longitude, y = Latitude), bins=50)+
+  scale_fill_viridis_c(option = "magma", direction=-1)+
+  labs(title = "Densidad de incidentes reportados",
+  caption = "Fuente:SF Data",
+     x="Longitud",y="latitud")
+```
+
+```{r}
+incidentes_3<- incidentes_3%>%
+  mutate(mes=month(Incident.Date, label = TRUE))
+
+```
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF) +
+    geom_bin2d(data = incidentes_3, 
+               aes(x = Longitude, y = Latitude))+
+  scale_fill_viridis_c(option = "magma", direction=-1)+
+  facet_wrap(~mes)+
+  labs(title = "Densidad de incidentes reportados por mes",
+  caption = "Fuente:SF Data",
+     x="Longitud",y="latitud")
+  
+```
+
+A partir de estos gráficos, podemos observar que la densidad de incidentes reportados se encuentran en su gran mayoría localizados en una misma zona a lo largo de todo el año (noroeste de San Francisco).
+
+```{r fig.height=5, fig.width=10}
+ggmap(Mapa_SF) +
+    geom_bin2d(data = incidentes_ordenados_01 %>% 
+                 filter(Incident.Category=="Larceny Theft"),
+               aes(x = Longitude, y = Latitude))+
+  scale_fill_viridis_c(option = "magma", direction=-1)+
+  facet_wrap(~mes)+
+  labs(title = "Densidad de incidentes reportados por mes",
+  caption = "Fuente:SF Data",
+     x="Longitud",y="Latitud")
+  
+```
+
+A través de estos mapas facetados podemos observar que el incidente con mayor ocurrencia seleccionado (hurto) tiene una densidad geográfica similar a cuando se analiza la totalidad de los incidentes reportados Logicamente, esto se debe a que el incidente más reportado "Larceny Theft" (hurto) tiene una amplia brecha con respecto a los demás incidentes.
+
+## **Trabajo Práctico N°3-BIS**
+
+```{r}
+incidentes_1bis <- incidentes_1 %>% 
+  mutate(Incident.Category=as.character(Incident.Category), Incident.Category = case_when(
+                  Incident.Category == "Human Trafficking (A), Commercial Sex Acts"  ~ "Human Trafficking",
+                  Incident.Category == "Human Trafficking, Commercial Sex Acts" ~ "Human Trafficking",
+                  Incident.Category == "Human Trafficking (B), Involuntary Servitude" ~ "Human Trafficking",
+                  Incident.Category == "Motor Vehicle Theft?" ~ "Motor Vehicle Theft",
+                 Incident.Category == "Other Miscellaneous" ~ "Other",
+                  Incident.Category == "Other Offenses" ~ "Other",
+                 Incident.Category == "Suspicious Occ"~ "Suspicious",
+                  Incident.Category == "Weapons Offence" ~ "Weapons Offense",
+                 TRUE ~ Incident.Category))
+```
+
+Intentamos realizar esta operación al principio del Trabajo Práctico 3, pero nos modificaba todas las demás operaciones, gráficos y conclusiones
+
+```{r}
+incidentes_1bis <- mutate(incidentes_1bis, Incident.Category=as.factor(Incident.Category))
+```
+
+```{r}
+summary(incidentes_1bis$Incident.Category)
+```
+
+```{r}
+incidentes_1bis <- incidentes_1bis %>% 
+  mutate(hora=hour(hm(Incident.Time)))
+
+```
+
+```{r}
+incidentes_1biss <- incidentes_1bis %>% count(hora)
+```
+
+```{r}
+str(incidentes_1biss)
+```
+
+```{r}
+ggplot(incidentes_1biss)+
+  geom_line(aes(x=hora, y=n),color="salmon")+
+  scale_x_continuous(breaks=seq(0, 24,1))+
+  labs(title = "Cantidad de incidentes según la hora del día ",
+       subtitle= "Gráfico de línea",
+  caption = "Fuente:SF Data",
+     x="Horas del día",y="Cantidad de Incidentes")
+```
+
+## **Trabajo Práctico N°4**
+
+```{r}
+library(rtweet)
+```
+
+Analizaremos los tweets de vacunación de la Ciudad de San Francisco, California
+
+```{r}
+tweet_sf <-readRDS(file="data/tw_sanfrancisco_vacunacion.rds")
+```
+
+```{r}
+dim(tweet_sf)
+```
+
+```{r}
+names(tweet_sf)
+```
+
+```{r}
+ggplot(tweet_sf) +
+  geom_bar(aes(x=location)) + 
+    coord_flip() +
+     labs(title = "Origen declarado de los usuarios",
+          x = "Cantidad",
+          y = "Ubicación")
+```
+
+En este gráfico se observa la localización de los usuarios que generaron los tweets seleccionado. Lamentablemente el gráfico no es legible, por lo que realizaremos una selección de las 12 localizaciones con mayor cantidad de usuarios.
+
+```{r}
+tweet_sf_01 <- tweet_sf %>%
+  group_by(location) %>%
+  summarise(cantidad=n()) %>%
+  arrange(desc(cantidad)) %>%
+  head(12)
+```
+
+```{r}
+head(tweet_sf_01, 12)
+```
+
+```{r}
+tweet_02 <- tweet_sf_01 %>% 
+  mutate(location_02 = case_when(location == "San Francisco, California"   ~ "San Francisco",
+                  location == "San Francisco, CA USA" ~ "San Francisco",
+                  location == "San Francisco, CA" ~ "San Francisco",
+                  location == "San Francisco" ~ "San Francisco",
+                  location == "San Mateo, CA"  ~ "San Mateo",
+                 location =="Pacifica, CA" ~ "Pacifica",
+                  location == "Oakland, California" ~ "Oakland",
+                 location =="Oakland, CA" ~"Oakland",
+                  location == "Oakland"  ~ "Oakland",
+                  location == "Berkeley, California"  ~ "Berkeley",
+                  location == "Berkeley, CA"  ~ "Berkeley",
+                 location =="Alameda, CA"  ~ "Alameda"))
+```
+
+```{r}
+tweet_sf_03 <- tweet_02 %>%
+  group_by(location_02) %>%
+  summarise(cantidad_02=sum(cantidad)) %>%
+  arrange(desc(cantidad_02))
+  
+```
+
+```{r}
+ggplot() +
+  geom_col(data=tweet_sf_03, aes(x= reorder(location_02,-cantidad_02), y=cantidad_02), fill="hotpink4") +
+ geom_text(data= tweet_sf_03, aes(x=reorder(location_02,-cantidad_02), y=cantidad_02, label=as.integer(cantidad_02)), size=4)+
+     labs(title = "Origen declarado de los usuarios por cantidad",
+         y= "Cantidad",
+          x= "Ubicación")
+```
+
+Como vemos en el gráfico anterior, San Francisco es la ubicación con más seguidores de Twitter.
+
+Verificaremos que sólo nos queden los datos de aquellos barrios que tengan datos de geolocalización.
+
+```{r}
+tweet_sf_seleccion <- tweet_sf %>% 
+    select(screen_name, followers_count, location) %>% 
+    distinct() %>% 
+    arrange(desc(followers_count)) %>% 
+    head(5)
+```
+
+```{r}
+ggplot() +
+  geom_col(data=tweet_sf_seleccion, aes(x=reorder(screen_name,-followers_count), y=followers_count), fill="hotpink4") +
+ geom_text(data= tweet_sf_seleccion, aes(x=reorder(screen_name,-followers_count),y=followers_count, label=as.integer(followers_count)), size=4)+
+     labs(title = "Usuarios con mayor cantidad de seguidores",
+         y= "Cantidad",
+          x= "Usuario")
+```
+
+Este gráfico responde a los 5 usuarios con mayor cantidad de seguidores.
+
+```{r}
+tweet_sf_ubicacion <- lat_lng(tweet_sf, coords = c("coords_coords", "bbox_coords", "geo_coords"))
+```
+
+```{r}
+tweet_sf_ubicacion_02 <- tweet_sf_ubicacion %>% 
+    filter(!is.na(lat), !is.na(lng))
+```
+
+```{r}
+tweet_sf_ubicacion_03 <- tweet_sf_ubicacion_02 %>% 
+    select(screen_name, followers_count, location, lat, lng) %>% 
+    distinct() %>% 
+    arrange(desc(followers_count)) %>% 
+    head(5)
+```
+
+```{r}
+head(tweet_sf_ubicacion_03)
+```
+
+```{r}
+ggplot() +
+  geom_col(data=tweet_sf_ubicacion_03, aes(x=reorder(screen_name,-followers_count), y=followers_count), fill="hotpink4") +
+ geom_text(data= tweet_sf_ubicacion_03, aes(x=reorder(screen_name,-followers_count),y=followers_count, label=as.integer(followers_count)), size=4)+
+     labs(title = "Usuarios con mayor cantidad de seguidores con ubicación geográfica",
+         y= "Cantidad",
+          x= "Usuario")
+```
+
+Como vemos en este gráfico, luego de filtar el dataset a partir de las coordenadas, han cambiado los datos y han aparecido nuevos usuarios con mayor cantidad de seguidores
+
+```{r}
+ggmap(Mapa_SF) +
+    geom_point(data = tweet_sf_ubicacion_03, aes(x = lng, y = lat, color = followers_count))+
+    scale_color_distiller(palette = "Spectral")+
+    theme_void()
+```
+
+En este mapa sólo se observan 2 usuarios de Twitter, dado que no se encuentran dentro del mapa delimitado por bbox.
+
+```{r}
+ggmap(Mapa_SF) +
+    geom_point(data = tweet_sf_ubicacion_03 %>% arrange(followers_count), aes(x = lng, y = lat, color = followers_count, size =followers_count))+
+    scale_color_distiller(palette = "Spectral")+
+    theme_void()
+```
+
+```{r}
+paleta <- colorNumeric(
+  palette = "viridis",
+  domain = tweet_sf_ubicacion_03$followers_count)
+```
+
+```{r}
+leaflet(tweet_sf_ubicacion_03) %>% 
+    addTiles() %>% 
+    addCircleMarkers(popup = ~text,
+                     color = ~paleta(followers_count))
+```
+
+Luego de visualizar este mapa, podemos entender el motivo por el cual en el primer mapa aparecian sólo 2 usuarios de Twitter.
+
+```{r}
+leaflet(tweet_sf_ubicacion_03) %>% 
+    addTiles() %>% 
+    addCircleMarkers(popup = ~text,
+                     color = ~paleta(followers_count),
+                     lat = ~jitter(lat, 10),
+                     lng = ~jitter(lng, 10))
+```
+
+En este mapa aplicamos la funicón "Jitter", con el fin de separar los puntos para poder verlos con mayor precisión.
+
+*Punto b*
+
+```{r}
+tweet_sf_04 <- tweet_sf %>% 
+  mutate(created_at=ymd_hms(created_at))
+
+```
+
+```{r}
+tweet_sf_04 %>% count(hora = hour(created_at))
+```
+
+```{r}
+tweets_horario <- tweet_sf_04 %>% 
+  mutate(fecha_ok= with_tz(created_at, tzone = "US/Pacific"))
+  
+
+```
+
+```{r}
+head(tweets_horario)
+```
+
+```{r}
+tweets_horario_02 <- tweets_horario %>% 
+  mutate(hora_ok= hour(fecha_ok))
+```
+
+```{r}
+ts_plot(tweets_horario_02, "hours")
+```
+
+```{r}
+tweets_horario_03 <- tweets_horario_02 %>% 
+  group_by(hora_ok) %>% 
+  summarise(cantidad_03=n())
+```
+
+```{r}
+ggplot(tweets_horario_03)+
+  geom_line(aes(x=hora_ok, y=cantidad_03),color="salmon")+
+  scale_x_continuous(breaks=seq(0, 24,1))+
+  labs(title = "Cantidad de tweets según la hora del día ",
+       subtitle= "Gráfico de línea",
+  caption = "Fuente:Twitter",
+     x="Horas del día",y="Cantidad de Twits")
+```
+
+En este gráfico podemos observar que el mayor pico se encuentra a las 10 de la mañana (US/Pacific), mientras el mayor descenso se registra a las 3 de la mañana (resulta lógico, porque la gente descansa).
+
+```{r}
+tweet_sf_ubicacion_04 <- tweet_sf_ubicacion_02 %>% 
+    select(screen_name, followers_count, location, lat, lng) %>% 
+    distinct() %>% 
+    arrange(desc(followers_count))
+```
+
+```{r}
+head(tweet_sf_ubicacion_04, 10)
+```
+
+```{r}
+paleta_02 <- colorNumeric(
+  palette = "Spectral",
+  domain = tweet_sf_ubicacion_04$followers_count)
+```
+
+```{r}
+leaflet(tweet_sf_ubicacion_04) %>% 
+    addTiles() %>% 
+    addCircleMarkers(popup = ~text,
+                     color = ~paleta_02(followers_count))
+```
+
+Este mapa muestra la ubicación geolocalizada de los usuarios de Twitter, que comentaron sobre el tema de las vacunas. A su vez, la paleta toma diferentes colores según la cantidad de seguidores. Los más oscuros representan a los usuarios con mayor cantidad de seguidores, como por ejemplo, al noroeste de San Francisco.
+
+```{r}
+leaflet(tweet_sf_ubicacion_04) %>% 
+    addTiles() %>% 
+    addCircleMarkers(popup = ~text,
+                     color = ~paleta_02(followers_count),
+                     lat = ~jitter(lat, 10),
+                     lng = ~jitter(lng, 10))
+```
+
+Creíamos que tendríamos muchos puntos superpuestos en el mapa anterior, por lo que aplicamos la función "Jitter" y no visualizamos mayores cambios.
+
+
+
+## **Trabajo Práctico N°5**
+
+***RECORRIDOS Y DISTANCIAS***
+
+*Servicios Esenciales (puntos 1b / 2b)*
+
+```{r}
+library(tidyverse)
+library(sf)
+library(sp)
+library(ggmap)
+library(leaflet)
+library(osrmr)
+```
+
+
+Buscaremos la ubicación delas comisarías en la Ciudad de San Francisco
+
+```{r}
+sf_police <- read.csv("data/Map_of_Police_Stations__2011_.csv", stringsAsFactors=TRUE)
+```
+
+```{r}
+dim(sf_police)
+```
+
+```{r}
+head(sf_police,10)
+```
+
+```{r}
+incidentes_barrio_cantidad <-  incidentes_1bis %>% 
+  group_by(Analysis.Neighborhood) %>% 
+  summarise(cantidad=n())
+```
+
+```{r}
+summary(incidentes_barrio_cantidad)
+```
+
+Analizando el dataset, el barrio con mayor cantidad de incidentes es Mission con 49.480 casos. Por lo que analizaremos este barrio y las rutas y/o cercanías a las comisarías de San Francisco
+
+
+```{r}
+centroides_Sf_01 <- Barrios %>%
+  select(-(3:4))
+```
+
+```{r}
+centroides_sf_02 <- st_centroid( centroides_Sf_01)
+
+```
+
+```{r}
+centroide_Mission <- centroides_sf_02 %>% 
+  filter(nhood=="Mission")
+```
+
+
+```{r}
+centroides_Mission_02 <- st_coordinates(centroide_Mission)
+```
+
+```{r}
+str(centroide_Mission)
+```
+
+
+```{r}
+ggplot() +
+    geom_sf(data = Barrios, fill=NA,color="gray60") +
+    geom_point(data = centroides_Mission_02, aes (x=X, y=Y, colour = "PRZI", show.legend = "point"), alpha = .5, size=2)+
+    theme_void()
+```
+
+```{r fig.height=5, fig.width=7.5}
+ggplot() +
+   geom_sf(data = Barrios, fill=NA,color="gray60") +
+    geom_point(data = as.data.frame(centroides_Mission_02), aes(x = X, y = Y), color="hotpink4")+
+  labs(title = "Ubicación geográfica del centroide del Barrio Mission en San Francisco",
+       caption = "Fuente: DATA SF")+
+    theme_void()
+```
+ 
+Ya hemos podido graficar el centroide del Barrio Mission, ahora localizaremos en un mapa las comisarías y veremos las rutas a las mismas, desde el centroide del Barrio Mission.
+
+
+```{r}
+sf_police_01 <- sf_police %>%
+  select(5)
+```
+
+```{r}
+str(sf_police_01)
+```
+
+```{r}
+sf_police_02<-sf_police_01 %>%
+  mutate(Location=as.character(Location))
+
+```
+
+```{r}
+str(sf_police_02)
+```
